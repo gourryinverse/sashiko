@@ -22,7 +22,11 @@ git clone --recursive https://github.com/sashiko-dev/sashiko.git
 cd sashiko
 ```
 
-*Note: The `--recursive` flag initializes the `third_party/linux` reference kernel submodule and prompt submodules.*
+*Note: The `third_party/linux` reference kernel submodule is not checked out by default, even with `--recursive`; check it out explicitly to use it as the daemon's repository:*
+
+```bash
+git submodule update --init --checkout third_party/linux
+```
 
 ### 2. Configure
 
