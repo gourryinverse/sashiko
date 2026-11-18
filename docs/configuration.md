@@ -122,7 +122,7 @@ Core AI settings that apply to all providers.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `provider` | string | -- | LLM provider: `gemini`, `claude`, `claude-cli`, `codex-cli`, `copilot-cli`, `bedrock`, `vertex`, `kiro-cli`, `goose`, `openai`, `openai-compatible`. |
+| `provider` | string | -- | LLM provider: `gemini`, `claude`, `claude-cli`, `codex-cli`, `pi-cli`, `copilot-cli`, `bedrock`, `vertex`, `kiro-cli`, `goose`, `openai`, `openai-compatible`. |
 | `model` | string | -- | Model identifier (provider-specific). |
 | `max_input_tokens` | integer | `150000` | Maximum input tokens per request. |
 | `max_interactions` | integer | `100` | Maximum tool-call rounds per review turn. |
@@ -159,6 +159,16 @@ Settings for the Codex CLI provider (`provider = "codex-cli"`).
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `effort` | string | -- | Reasoning effort: `"none"`, `"minimal"`, `"low"`, `"medium"`, `"high"`, `"xhigh"`, `"max"`. Passed as `-c model_reasoning_effort=<effort>`, which outranks `~/.codex/config.toml` but not an enterprise-managed requirements layer. A run whose effort that layer substitutes fails. |
+
+#### `[ai.pi_cli]`
+
+Settings for the pi CLI provider (`provider = "pi-cli"`).
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `binary` | string | `"pi"` | Path to the `pi` binary. |
+| `thinking` | string | -- | Thinking level: `"off"`, `"minimal"`, `"low"`, `"medium"`, `"high"`, `"xhigh"`, `"max"`. Passed as `pi --thinking <level>`; unset leaves the model default. |
+| `context_window_size` | integer | `200000` | The model's context window, for prompt truncation. |
 
 #### `[ai.gemini]`
 

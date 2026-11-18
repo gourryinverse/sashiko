@@ -596,6 +596,31 @@ pub struct CodexCliSettings {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 #[allow(unused)]
+pub struct PiCliSettings {
+    /// Path to the pi binary.
+    #[serde(default = "default_pi_cli_binary")]
+    pub binary: String,
+    /// Thinking level passed to `pi --thinking`: "off", "minimal", "low",
+    /// "medium", "high", "xhigh", or "max". Leave unset for the model default.
+    #[serde(default)]
+    pub thinking: Option<String>,
+    /// The model's context window, for Sashiko's truncation. pi prepends
+    /// little of its own; budget for its system prompt.
+    #[serde(default = "default_pi_cli_context_window")]
+    pub context_window_size: usize,
+}
+
+fn default_pi_cli_binary() -> String {
+    "pi".to_string()
+}
+
+fn default_pi_cli_context_window() -> usize {
+    200_000
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+#[allow(unused)]
 pub struct DevinCliSettings {
     /// Path to a Devin declarative agent config file (JSON or YAML) passed via
     /// `--agent-config`. Use this to disable all tools for a strictly
@@ -648,6 +673,7 @@ pub struct AiSettings {
     pub claude_cli: Option<ClaudeCliSettings>,
     pub codex_cli: Option<CodexCliSettings>,
     pub devin_cli: Option<DevinCliSettings>,
+    pub pi_cli: Option<PiCliSettings>,
 }
 
 fn default_response_cache_ttl_days() -> u64 {

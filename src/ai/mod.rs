@@ -764,6 +764,18 @@ pub fn create_provider_from_ai(ai: &AiSettings) -> Result<Arc<dyn AiProvider>> {
             model: ai.model.clone(),
             effort: ai.codex_cli.as_ref().and_then(|c| c.effort.clone()),
         })),
+        "pi-cli" => {
+            let cfg = ai.pi_cli.as_ref();
+            Ok(Arc::new(pi_cli::PiCliProvider {
+                model: ai.model.clone(),
+                binary: cfg
+                    .map(|c| c.binary.clone())
+                    .unwrap_or_else(|| "pi".to_string()),
+                thinking: cfg.and_then(|c| c.thinking.clone()),
+                context_window_size: cfg.map(|c| c.context_window_size).unwrap_or(200_000),
+                timeout_secs: ai.api_timeout_secs,
+            }))
+        }
         "copilot-cli" => Ok(Arc::new(copilot_cli::CopilotCliProvider {
             model: ai.model.clone(),
         })),
@@ -856,6 +868,7 @@ pub mod kiro_cli;
 pub mod logging_provider;
 pub mod ollama;
 pub mod openai;
+pub mod pi_cli;
 #[cfg(feature = "server")]
 pub mod proxy;
 pub mod quota;

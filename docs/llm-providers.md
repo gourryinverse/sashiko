@@ -362,6 +362,41 @@ whatever the origin. A run whose effort that layer substitutes fails
 rather than record a review at an effort other than the one configured.
 Leave the setting unset to accept the account default.
 
+## pi CLI
+
+Uses a local [pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
+as the completion backend. pi fronts many model providers behind one
+`--model provider/id` switch, with its own configuration and credentials.
+
+**Prerequisites:** Install the `pi` CLI and configure a model provider.
+
+**Apply the example config:**
+
+```bash
+cp docs/examples/Settings.pi-cli.toml Settings.toml
+```
+
+**What you get:**
+
+- Runs `pi --print --mode json` as a stateless backend, in a fresh temporary
+  directory, with a neutral system prompt
+- pi's tools, skills, context files, and sessions turned off; its extensions
+  stay loaded, so a site's policy extensions still apply
+- Prompt sent via stdin; the reply and its token usage are read from pi's
+  JSON event stream
+
+**Settings:**
+
+```toml
+[ai]
+provider = "pi-cli"
+model = "provider/model-id"   # pi's --model; empty for pi's default
+
+[ai.pi_cli]
+thinking = "high"             # pi's --thinking level; unset for the model default
+context_window_size = 200000
+```
+
 #### Devin CLI Setup
 
 Sashiko can use a local [Devin for Terminal](https://cli.devin.ai/) install as
