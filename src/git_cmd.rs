@@ -33,6 +33,7 @@
 //! repository is touched.
 
 use std::path::Path;
+use std::sync::OnceLock;
 
 /// Environment variables through which a parent process can point git at a
 /// repository, an index, an object store, or extra configuration.
@@ -101,6 +102,37 @@ pub fn detached_async() -> tokio::process::Command {
     let mut command = git_command!(tokio::process::Command, None::<&Path>);
     command.kill_on_drop(true);
     command
+}
+
+/// The flag `git grep` takes for a regular expression: `-P` (Perl-compatible)
+/// when the git on PATH was built with PCRE, else `-E` (POSIX extended), so a
+/// git without PCRE still searches instead of failing every lookup. Patterns
+/// meant for both keep to what the two share: alternation, groups, `\s`, `\b`,
+/// POSIX classes in brackets. Probed once per process.
+pub fn grep_regex_flag() -> &'static str {
+    static FLAG: OnceLock<&'static str> = OnceLock::new();
+    FLAG.get_or_init(|| if perl_regex_supported() { "-P" } else { "-E" })
+}
+
+/// Whether `git grep -P` works: it is tried on an empty directory (nothing to
+/// search, so no match either way); a git without PCRE refuses the pattern.
+fn perl_regex_supported() -> bool {
+    let Ok(empty) = tempfile::tempdir() else {
+        return true; // Cannot probe: keep -P, as before.
+    };
+    match in_dir(empty.path())
+        .args(["grep", "--no-index", "-q", "-P", "-e", "x"])
+        .env("LC_ALL", "C")
+        .output()
+    {
+        Ok(output) => !lacks_pcre(&String::from_utf8_lossy(&output.stderr)),
+        Err(_) => true,
+    }
+}
+
+/// Whether git's error output says it was built without PCRE.
+fn lacks_pcre(stderr: &str) -> bool {
+    stderr.contains("USE_LIBPCRE")
 }
 
 #[cfg(test)]
@@ -249,5 +281,25 @@ mod tests {
              instead. Offending files: {}",
             offenders.join(", ")
         );
+    }
+
+    #[test]
+    fn test_a_git_without_pcre_is_recognised() {
+        let said = "fatal: cannot use Perl-compatible regexes when not compiled with USE_LIBPCRE\n";
+        assert!(lacks_pcre(said));
+        assert!(!lacks_pcre(""));
+        assert!(!lacks_pcre("fatal: not a git repository\n"));
+    }
+
+    #[test]
+    fn test_the_grep_flag_is_one_this_git_takes() {
+        let flag = grep_regex_flag();
+        assert!(flag == "-P" || flag == "-E");
+        let empty = tempfile::tempdir().unwrap();
+        let output = in_dir(empty.path())
+            .args(["grep", "--no-index", "-q", flag, "-e", "(a|b)\\s+c\\b"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{output:?}"); // No match, no error.
     }
 }

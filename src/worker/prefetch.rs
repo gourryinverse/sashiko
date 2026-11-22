@@ -184,10 +184,7 @@ pub async fn prefetch_context(repository: &Path, target_sha: &str, diff: &str) -
 
     // Phase 2: look up referenced symbol definitions via git grep + tree-sitter.
     if !symbols.is_empty() {
-        let regex_pattern = format!(
-            "^((struct|enum|union)\\s+({0})\\b|#define\\s+({0})\\b|([a-zA-Z_][a-zA-Z0-9_ \\t*]+\\s+)?({0})\\s*\\()",
-            symbols.join("|")
-        );
+        let regex_pattern = definition_pattern(&symbols);
 
         let caller_dirs: HashSet<&str> = file_ranges
             .keys()
@@ -201,7 +198,7 @@ pub async fn prefetch_context(repository: &Path, target_sha: &str, diff: &str) -
             .arg("-z")
             .arg("-n")
             .arg("-I")
-            .arg("-P")
+            .arg(crate::git_cmd::grep_regex_flag())
             .arg("-e")
             .arg(&regex_pattern)
             .arg(&snapshot.sha)
@@ -886,6 +883,17 @@ pub fn extract_type_names(
     types
 }
 
+/// A `git grep` pattern for the lines that define one of *symbols*: a struct,
+/// enum or union, a #define, or a function. Written to mean the same as Perl
+/// and as POSIX extended regex (see [`crate::git_cmd::grep_regex_flag`]):
+/// `[:blank:]` for a space or tab inside brackets, where `\t` would not be one.
+fn definition_pattern(symbols: &[String]) -> String {
+    format!(
+        "^((struct|enum|union)\\s+({0})\\b|#define\\s+({0})\\b|([a-zA-Z_][a-zA-Z0-9_[:blank:]*]+\\s+)?({0})\\s*\\()",
+        symbols.join("|")
+    )
+}
+
 #[cfg(test)]
 mod revision_tests;
 
@@ -947,5 +955,47 @@ struct MyStruct {
         ranges.insert((50, 60)); // gap of 19 — does not merge
         let merged = merge_ranges(&ranges, 3);
         assert_eq!(merged, vec![(10, 30), (50, 60)]);
+    }
+
+    /// The definition pattern finds the same lines whichever regex flavour
+    /// git greps with: a function whose return type ends in a tab included.
+    #[test]
+    fn test_the_definition_pattern_means_the_same_in_both_flavours() {
+        let repo = tempfile::tempdir().unwrap();
+        let git = |args: &[&str]| {
+            let out = crate::git_cmd::in_dir(repo.path())
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{args:?}: {out:?}");
+            String::from_utf8_lossy(&out.stdout).into_owned()
+        };
+        git(&["init", "-q"]);
+        std::fs::write(
+            repo.path().join("a.c"),
+            "struct foo {\n#define BAR 1\nstatic int\tbaz (int x)\nint bazooka(void)\n",
+        )
+        .unwrap();
+        git(&["add", "a.c"]);
+        git(&[
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-qm",
+            "t",
+        ]);
+        let symbols = ["foo", "BAR", "baz"].map(String::from);
+        let pattern = definition_pattern(&symbols);
+        let lines = |flag: &str| git(&["grep", "-n", flag, "-e", &pattern, "HEAD"]);
+        let extended = lines("-E");
+        assert_eq!(
+            extended,
+            "HEAD:a.c:1:struct foo {\nHEAD:a.c:2:#define BAR 1\nHEAD:a.c:3:static int\tbaz (int x)\n"
+        );
+        if crate::git_cmd::grep_regex_flag() == "-P" {
+            assert_eq!(lines("-P"), extended);
+        }
     }
 }
